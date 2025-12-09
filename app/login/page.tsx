@@ -1,11 +1,11 @@
-import { LoginForm } from "@/components/ui/login";
+import { LoginForm } from "@/components/ui/login"
 
 export default function Page() {
-  return <>
+  return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-sm">
         <LoginForm />
       </div>
     </div>
-    </>
+  )
 }

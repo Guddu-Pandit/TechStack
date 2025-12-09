@@ -77,29 +77,25 @@ export default function DashboardPage() {
 
     // 1) Upload to Storage
     const { error: uploadError } = await supabase.storage
-      .from("user-documents")
-      .upload(filePath, file, {
-        upsert: true, 
-      });
+      .from("tech")
+      .upload(filePath, file,);
 
     if (uploadError) {
       console.log(uploadError);
+      console.log("UPLOAD ERROR:", uploadError.message);
       setError("Error uploading file.");
       setLoading(false);
       return;
     }
 
     // 2) Insert into DB
-    const { error: dbError } = await supabase.from("documents").insert({
-      user_id: user.id,
+    const { error: dbError } = await supabase.from("files").insert({
       file_path: filePath,
       original_filename: file.name,
-      mime_type: file.type,
       file_size_bytes: file.size,
-      extracted_text: null,
     });
 
-    if (dbError) {
+    if (!dbError) {
       console.log(dbError);
       setError("File uploaded but database insert failed.");
       setLoading(false);
@@ -140,7 +136,7 @@ export default function DashboardPage() {
           {error && <p className="text-sm text-red-500">{error}</p>}
 
           <Button
-            className="w-full mt-4"
+            className="w-full mt-4 cursor-pointer"
             onClick={handleSubmit}
             disabled={loading}
           >

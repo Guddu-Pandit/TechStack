@@ -168,7 +168,6 @@ export default function DashboardPage() {
                 <p className="text-xs text-gray-500">{userInfo.email}</p>
               </div>
             )}
-
             <Button variant="outline" className="rounded-lg px-4">
               <Link href="/">Logout</Link>
             </Button>
@@ -228,13 +227,13 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex gap-3">
-                <Button variant="outline" className="rounded-lg">
+                <Button variant="outline" className="rounded-lg cursor-pointer">
                   ⬇ Download
                 </Button>
 
                 <Button
                   onClick={() => extractText(f.file_path)}
-                  className="rounded-lg bg-[#0A0F1C] hover:bg-black text-white"
+                  className="rounded-lg bg-[#0A0F1C] hover:bg-black text-white cursor"
                   disabled={extracting}
                 >
                   {extracting ? "Extracting..." : "View Text"}
@@ -247,7 +246,7 @@ export default function DashboardPage() {
         {/* EXTRACTED TEXT */}
         {extractedText && (
           <div className="bg-white border rounded-2xl shadow-sm p-6">
-            <h3 className="font-semibold text-lg mb-2">Extracted Text</h3>
+            <h3 className="font-semibold text-lg mb-2">Extracted</h3>
             <pre className="whitespace-pre-wrap text-sm">{extractedText}</pre>
           </div>
         )}

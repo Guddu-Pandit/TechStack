@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 export default function DashboardPage() {
@@ -13,12 +13,43 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [userInfo, setUserInfo] = useState<any>(null);
+  const [files, setFiles] = useState<any[]>([]);
+  const [extracting, setExtracting] = useState(false);
+  const [extractedText, setExtractedText] = useState("");
+
+  const fetchUser = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) setUserInfo(user);
+  };
+
+  fetchUser();
+
+  // FETCH FILES FROM DATABASE
+  const fetchFiles = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("files")
+      .select("*")
+      .eq("user_id", user.id);
+
+    if (!error) setFiles(data || []);
+  };
+
+  useEffect(() => {
+    fetchFiles();
+  }, []);
 
   // FILE VALIDATION
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
 
-    // If user removed the file
     if (!selected) {
       setFile(null);
       setError("");
@@ -31,7 +62,6 @@ export default function DashboardPage() {
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ];
 
-    // Size validation
     if (selected.size > maxSize) {
       setError("File size must be less than 10MB.");
       setFile(null);
@@ -39,7 +69,6 @@ export default function DashboardPage() {
       return;
     }
 
-    // Type validation
     if (!allowedTypes.includes(selected.type)) {
       setError("Only PDF and DOCX files are allowed.");
       setFile(null);
@@ -47,7 +76,6 @@ export default function DashboardPage() {
       return;
     }
 
-    // Clear error on valid file
     setError("");
     setFile(selected);
   };
@@ -61,7 +89,6 @@ export default function DashboardPage() {
 
     setLoading(true);
 
-    // Get logged-in user
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -75,74 +102,155 @@ export default function DashboardPage() {
     const fileExt = file.name.split(".").pop();
     const filePath = `${user.id}/${Date.now()}.${fileExt}`;
 
-    // 1) Upload to Storage
     const { error: uploadError } = await supabase.storage
       .from("tech")
-      .upload(filePath, file,);
+      .upload(filePath, file);
 
     if (uploadError) {
-      console.log(uploadError);
-      console.log("UPLOAD ERROR:", uploadError.message);
       setError("Error uploading file.");
       setLoading(false);
       return;
     }
 
-    // 2) Insert into DB
     const { error: dbError } = await supabase.from("files").insert({
+      user_id: user.id,
       file_path: filePath,
-      original_filename: file.name,
-      file_size_bytes: file.size,
     });
 
-    if (!dbError) {
-      console.log(dbError);
+    if (dbError) {
       setError("File uploaded but database insert failed.");
       setLoading(false);
       return;
     }
 
-    setLoading(false);
-    setError("");
     setFile(null);
+    setError("");
+    setLoading(false);
+
+    fetchFiles(); // reload list
+
     alert("File uploaded successfully!");
   };
 
-  return (
-    <div className="min-h-svh w-full flex flex-col">
-      {/* Navbar */}
-      <nav className="w-full border-b bg-white/80 backdrop-blur-md">
-        <div className="max-w-5xl mx-auto flex items-center justify-between p-4">
-          <h1 className="text-xl font-semibold">📁 Document Dashboard</h1>
+  // EXTRACT TEXT API CALL
+  const extractText = async (filePath: string) => {
+    setExtracting(true);
 
-          <Button variant="destructive" className="px-4 bg-red-500">
-            <Link href="/">Logout</Link>
-          </Button>
+    const res = await fetch("/api/extract", {
+      method: "POST",
+      body: JSON.stringify({ filePath }),
+    });
+
+    const data = await res.json();
+    setExtracting(false);
+
+    if (data.error) {
+      setExtractedText("Failed to extract text.");
+      return;
+    }
+
+    setExtractedText(data.text);
+  };
+
+  return (
+    <div className="min-h-svh w-full bg-[#F5F7FA] flex flex-col">
+      {/* Navbar */}
+      <nav className="w-full border-b bg-white shadow-sm">
+        <div className="max-w-5xl mx-auto flex items-center justify-between p-4">
+          <h1 className="text-xl font-semibold">Document Dashboard</h1>
+
+          <div className="flex items-center gap-4">
+            {userInfo && (
+              <div className="text-right">
+                <p className="text-sm font-medium">
+                  {userInfo.user_metadata?.full_name || "User"}
+                </p>
+                <p className="text-xs text-gray-500">{userInfo.email}</p>
+              </div>
+            )}
+
+            <Button variant="outline" className="rounded-lg px-4">
+              <Link href="/">Logout</Link>
+            </Button>
+          </div>
         </div>
       </nav>
 
-      {/* Dashboard */}
-      <div className="flex flex-1 items-center justify-center p-6 md:p-10">
-        <div className="grid w-full max-w-sm items-center gap-3">
-          <Label htmlFor="file">Upload Document</Label>
+      {/* MAIN CONTENT */}
+      <div className="max-w-5xl mx-auto w-full p-6 space-y-6">
+        {/* UPLOAD CARD */}
+        <div className="bg-white border rounded-2xl shadow-sm p-6">
+          <h2 className="font-semibold text-xl">Upload Document</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            PDF & DOCX only (max 10MB)
+          </p>
 
-          <Input
-            id="file"
-            type="file"
-            accept=".pdf,.docx"
-            onChange={handleFileChange}
-          />
+          <div className="mt-4 flex items-center gap-4">
+            <Input
+              id="file"
+              type="file"
+              accept=".pdf,.docx"
+              onChange={handleFileChange}
+              className="w-full"
+            />
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+            <Button
+              className="px-6 bg-black hover:bg-gray-800"
+              onClick={handleSubmit}
+              disabled={loading}
+            >
+              {loading ? "Uploading..." : "Upload"}
+            </Button>
+          </div>
 
-          <Button
-            className="w-full mt-4 cursor-pointer"
-            onClick={handleSubmit}
-            disabled={loading}
-          >
-            {loading ? "Uploading..." : "Submit"}
-          </Button>
+          {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
         </div>
+
+        {/* FILE LIST CARD */}
+        <div className="bg-white border rounded-2xl shadow-sm p-6">
+          <h2 className="font-semibold text-xl">Your Documents</h2>
+          <p className="text-sm text-gray-500 mb-4">{files.length} uploaded</p>
+
+          {files.length === 0 && (
+            <p className="text-sm text-gray-500">No documents uploaded.</p>
+          )}
+
+          {files.map((f) => (
+            <div
+              key={f.id}
+              className="border rounded-xl p-4 flex items-center justify-between mb-3"
+            >
+              <div>
+                <p className="font-medium">{f.original_filename}</p>
+                <p className="text-xs text-gray-500">
+                  {new Date(f.created_at).toISOString().split("T")[0]}
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <Button variant="outline" className="rounded-lg">
+                  ⬇ Download
+                </Button>
+
+                <Button
+                  onClick={() => extractText(f.file_path)}
+                  className="rounded-lg bg-[#0A0F1C] hover:bg-black text-white"
+                  disabled={extracting}
+                >
+                  {extracting ? "Extracting..." : "View Text"}
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* EXTRACTED TEXT */}
+        {extractedText && (
+          <div className="bg-white border rounded-2xl shadow-sm p-6">
+            <h3 className="font-semibold text-lg mb-2">Extracted Text</h3>
+            <pre className="whitespace-pre-wrap text-sm">{extractedText}</pre>
+          </div>
+        )}
       </div>
     </div>
   );

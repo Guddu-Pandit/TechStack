@@ -233,10 +233,10 @@ export default function DashboardPage() {
 
                 <Button
                   onClick={() => extractText(f.file_path)}
-                  className="rounded-lg bg-[#0A0F1C] hover:bg-black text-white cursor"
+                  className="rounded-lg bg-[#0A0F1C] hover:bg-black text-white cursor-pointer"
                   disabled={extracting}
                 >
-                  {extracting ? "Extracting..." : "View Text"}
+                  {extracting ? "Extracting..." : "Extract Text"}
                 </Button>
               </div>
             </div>

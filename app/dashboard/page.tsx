@@ -24,7 +24,7 @@ export default function DashboardPage() {
     if (user) setUserInfo(user);
   };
 
-  fetchUser();
+
 
   // FETCH FILES FROM DATABASE
   const fetchFiles = async () => {
@@ -41,9 +41,11 @@ export default function DashboardPage() {
     if (!error) setFiles(data || []);
   };
 
-  useEffect(() => {
-    fetchFiles();
-  }, []);
+useEffect(() => {
+  fetchUser();
+  fetchFiles();
+}, []);
+
 
   // FILE VALIDATION
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,15 +103,17 @@ export default function DashboardPage() {
     const fileExt = file.name.split(".").pop();
     const filePath = `${user.id}/${Date.now()}.${fileExt}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from("tech")
-      .upload(filePath, file);
+    const { data: uploaded, error: uploadError } = await supabase.storage
+  .from("tech")
+  .upload(filePath, file);
 
-    if (uploadError) {
-      setError("Error uploading file.");
-      setLoading(false);
-      return;
-    }
+if (uploadError) {
+  console.log("UPLOAD ERROR:", uploadError);
+  setError(uploadError.message);
+  setLoading(false);
+  return;
+}
+
 
     const { error: dbError } = await supabase.from("files").insert({
       user_id: user.id,
@@ -125,9 +129,9 @@ export default function DashboardPage() {
 
     setFile(null);
     setError("");
-    setLoading(true);
+    setLoading(false);
 
-    fetchFiles(); // reload list
+    fetchFiles(); 
 
     alert("File uploaded successfully!");
   };

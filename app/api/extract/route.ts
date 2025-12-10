@@ -20,65 +20,63 @@ export async function POST(req: NextRequest) {
         cookies: {
           async getAll() {
             return (await cookies()).getAll();
-          }
-        }
+          },
+        },
       }
     );
 
     const { data, error } = await supabase.storage
       .from("tech")
-      .download(filePath);
+      .download(`${filePath}`);
+    console.log("Trying to download:", `${filePath}`);
 
     if (error || !data) {
       console.error("DOWNLOAD ERROR:", error);
-      return NextResponse.json({ error: "Could not download file" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Could not download file" },
+        { status: 500 }
+      );
     }
 
     const buffer = Buffer.from(await data.arrayBuffer());
     let extractedText = "";
 
     //     PDF Extraction
-   if (filePath.endsWith(".pdf")) {
-  try {
-    const result = await extractText(buffer);
+    if (filePath.endsWith(".pdf")) {
+      try {
+        let result = await extractText(buffer);
 
-    // result.text may be string | string[] | undefined
-    let rawText: string = "";
+        let rawText = Array.isArray(result?.text)
+          ? result.text.join(" ")
+          : result?.text || "";
 
-    if (Array.isArray(result?.text)) {
-      rawText = result.text.join(" ");
-    } else if (typeof result?.text === "string") {
-      rawText = result.text;
+        rawText = rawText.trim();
+
+        if (!rawText || rawText.length < 5) {
+          // FALLBACK: use pdf-parse
+          const pdf = require("pdf-parse");
+          const pdfResult = await pdf(buffer);
+          rawText = pdfResult.text?.trim() || "";
+        }
+
+        extractedText = rawText || "⚠ No readable text found.";
+      } catch (err) {
+        console.error("UNPDF ERROR:", err);
+
+        extractedText = "⚠ PDF extraction failed.";
+      }
     }
-
-    rawText = rawText?.trim?.() || "";
-
-    if (!rawText || rawText.length < 5) {
-      extractedText =
-        "⚠ Unable to read text. This PDF may be scanned or contain non-selectable text.";
-    } else {
-      extractedText = rawText;
-    }
-  } catch (err) {
-    console.error("UNPDF ERROR:", err);
-    extractedText =
-      "⚠ PDF extraction failed. File may be password-protected, scanned, or corrupted.";
-  }
-}
 
     //       DOCX Extraction
-
     else if (filePath.endsWith(".docx")) {
       const result = await mammoth.extractRawText({ buffer });
-      extractedText = result.value?.trim() || "⚠ DOCX contains no readable text.";
-    }
-
-    else {
+      extractedText =
+        result.value?.trim() || "⚠ DOCX contains no readable text.";
+    } else {
       return NextResponse.json({ error: "Unsupported file type" });
     }
 
     return NextResponse.json({ text: extractedText });
-
   } catch (err) {
     console.error("EXTRACTION ERROR:", err);
     return NextResponse.json({ error: "Extraction failed" }, { status: 500 });

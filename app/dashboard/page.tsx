@@ -44,6 +44,7 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchFiles();
   }, []);
+  
 
   // FILE VALIDATION
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -178,6 +179,17 @@ export default function DashboardPage() {
 
       {/* MAIN CONTENT */}
       <div className="max-w-5xl mx-auto w-full p-6 space-y-6">
+        <section className="px-8 py-10">
+          <h2 className="text-4xl font-bold text-[#0A0F1C]">
+            Welcome back,{" "}
+            <span className="text-[#3f5fff]">
+              {userInfo?.user_metadata?.full_name || "User"}
+            </span>
+          </h2>
+          <p className="text-gray-600 mt-2">
+            Manage and extract text from your documents with ease.
+          </p>
+        </section>
         {/* UPLOAD CARD */}
         <div className="bg-white border rounded-2xl shadow-sm p-6">
           <h2 className="font-semibold text-xl">Upload Document</h2>

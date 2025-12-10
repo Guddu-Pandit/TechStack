@@ -157,6 +157,37 @@ if (uploadError) {
     setExtractedText(data.text);
   };
 
+
+// download file
+
+const downloadFile = async (path: string, fileName: string) => {
+  const { data, error } = await supabase.storage
+    .from("tech")
+    .createSignedUrl(path, 60);
+
+  if (error || !data?.signedUrl) {
+    alert("Failed to create download link");
+    return;
+  }
+
+  // Fetch the file as a blob (forces download)
+  const response = await fetch(data.signedUrl);
+  const blob = await response.blob();
+
+  const url = window.URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName; // forces browser to download instead of open
+  document.body.appendChild(link);
+
+  link.click();
+
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+
   return (
     <div className="min-h-svh w-full bg-[#F5F7FA] flex flex-col">
       {/* Navbar */}
@@ -243,9 +274,14 @@ if (uploadError) {
               </div>
 
               <div className="flex gap-3">
-                <Button variant="outline" className="rounded-lg cursor-pointer">
-                  ⬇ Download
-                </Button>
+               <Button
+  variant="outline"
+  className="rounded-lg cursor-pointer"
+  onClick={() => downloadFile(f.file_path, f.original_filename)}
+>
+  ⬇ Download
+</Button>
+
 
                 <Button
                   onClick={() => extractText(f.file_path)}

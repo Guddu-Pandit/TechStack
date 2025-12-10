@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 
@@ -115,6 +114,7 @@ export default function DashboardPage() {
     const { error: dbError } = await supabase.from("files").insert({
       user_id: user.id,
       file_path: filePath,
+      original_filename: file.name,
     });
 
     if (dbError) {
@@ -125,7 +125,7 @@ export default function DashboardPage() {
 
     setFile(null);
     setError("");
-    setLoading(false);
+    setLoading(true);
 
     fetchFiles(); // reload list
 
@@ -138,6 +138,7 @@ export default function DashboardPage() {
 
     const res = await fetch("/api/extract", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ filePath }),
     });
 

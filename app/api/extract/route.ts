@@ -1,57 +1,90 @@
-
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/client";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import mammoth from "mammoth";
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
+import { extractText } from "unpdf";
 
-const pdf = require("pdf-parse");
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
     const { filePath } = await req.json();
-
     if (!filePath) {
-      return NextResponse.json(
-        { error: "Missing filePath" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing filePath" }, { status: 400 });
     }
 
-    const supabase = createClient();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          async getAll() {
+            return (await cookies()).getAll();
+          }
+        }
+      }
+    );
 
-    // Download file from Supabase Storage
     const { data, error } = await supabase.storage
       .from("tech")
       .download(filePath);
 
     if (error || !data) {
-      console.error("Download error:", error);
-      return NextResponse.json(
-        { error: "Unable to download file" },
-        { status: 500 }
-      );
+      console.error("DOWNLOAD ERROR:", error);
+      return NextResponse.json({ error: "Could not download file" }, { status: 500 });
     }
 
     const buffer = Buffer.from(await data.arrayBuffer());
     let extractedText = "";
 
-    if (filePath.endsWith(".pdf")) {
-      const result = await pdf(buffer);
-      extractedText = result.text;
-    } else if (filePath.endsWith(".docx")) {
-      const result = await mammoth.extractRawText({ buffer });
-      extractedText = result.value;
+    // ------------------------
+    //     PDF Extraction
+    // ------------------------
+   if (filePath.endsWith(".pdf")) {
+  try {
+    const result = await extractText(buffer);
+
+    // result.text may be string | string[] | undefined
+    let rawText: string = "";
+
+    if (Array.isArray(result?.text)) {
+      rawText = result.text.join(" ");
+    } else if (typeof result?.text === "string") {
+      rawText = result.text;
+    }
+
+    rawText = rawText?.trim?.() || "";
+
+    if (!rawText || rawText.length < 5) {
+      extractedText =
+        "⚠ Unable to read text. This PDF may be scanned or contain non-selectable text.";
     } else {
-      return NextResponse.json({ error: "Unsupported format" });
+      extractedText = rawText;
+    }
+  } catch (err) {
+    console.error("UNPDF ERROR:", err);
+    extractedText =
+      "⚠ PDF extraction failed. File may be password-protected, scanned, or corrupted.";
+  }
+}
+
+
+    // ------------------------
+    //       DOCX Extraction
+    // ------------------------
+    else if (filePath.endsWith(".docx")) {
+      const result = await mammoth.extractRawText({ buffer });
+      extractedText = result.value?.trim() || "⚠ DOCX contains no readable text.";
+    }
+
+    else {
+      return NextResponse.json({ error: "Unsupported file type" });
     }
 
     return NextResponse.json({ text: extractedText });
+
   } catch (err) {
-    console.error("Extraction Error:", err);
-    return NextResponse.json(
-      { error: "Failed to extract text" },
-      { status: 500 }
-    );
+    console.error("EXTRACTION ERROR:", err);
+    return NextResponse.json({ error: "Extraction failed" }, { status: 500 });
   }
 }

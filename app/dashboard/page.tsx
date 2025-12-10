@@ -14,7 +14,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [userInfo, setUserInfo] = useState<any>(null);
   const [files, setFiles] = useState<any[]>([]);
-  const [extracting, setExtracting] = useState(false);
+  const [extractingId, setExtractingId] = useState<string | null>(null);
   const [extractedText, setExtractedText] = useState("");
 
   const fetchUser = async () => {
@@ -44,7 +44,6 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchFiles();
   }, []);
-  
 
   // FILE VALIDATION
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -135,7 +134,7 @@ export default function DashboardPage() {
 
   // EXTRACT TEXT API CALL
   const extractText = async (filePath: string) => {
-    setExtracting(true);
+    setExtractingId(filePath); // start extraction for THIS file
 
     const res = await fetch("/api/extract", {
       method: "POST",
@@ -144,7 +143,7 @@ export default function DashboardPage() {
     });
 
     const data = await res.json();
-    setExtracting(false);
+    setExtractingId(null); // stop only this file
 
     if (data.error) {
       setExtractedText("Failed to extract text.");
@@ -182,7 +181,7 @@ export default function DashboardPage() {
         <section className="px-8 py-10">
           <h2 className="text-4xl font-bold text-[#0A0F1C]">
             Welcome back,{" "}
-            <span className="text-[#3f5fff]">
+            <span className="text-[#3B82F6]">
               {userInfo?.user_metadata?.full_name || "User"}
             </span>
           </h2>
@@ -247,9 +246,11 @@ export default function DashboardPage() {
                 <Button
                   onClick={() => extractText(f.file_path)}
                   className="rounded-lg bg-[#0A0F1C] hover:bg-black text-white cursor-pointer"
-                  disabled={extracting}
+                  disabled={extractingId === f.file_path}
                 >
-                  {extracting ? "Extracting..." : "Extract Text"}
+                  {extractingId === f.file_path
+                    ? "Extracting..."
+                    : "Extract Text"}
                 </Button>
               </div>
             </div>

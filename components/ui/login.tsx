@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup } from "@/components/ui/field";
 import { createClient } from "@/utils/supabase/client";
+import { UserRound } from 'lucide-react';
+
 
 export function LoginForm({
   className,
@@ -22,12 +24,16 @@ export function LoginForm({
   };
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
+    <div className={cn("flex flex-col gap-6  ", className)} {...props}>
+      <Card className="outline-none border-none shadow-none">
+         <UserRound className="text-center mx-auto text-blue-500 w-26 h-26"/>
         <CardHeader>
           <CardTitle className="text-3xl text-center font-bold">
-            Login
+            Welcome
           </CardTitle>
+          <p className="text-center text-black/70 text-lg max-w-sm mx-auto mt-4">
+            Login in to continue.
+          </p>
         </CardHeader>
 
         <CardContent>

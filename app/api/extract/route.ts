@@ -6,6 +6,43 @@ import { extractText } from "unpdf";
 
 export const runtime = "nodejs";
 
+// Convert Supabase result (Blob or Stream) → ArrayBuffer safely
+async function toArrayBuffer(data: any): Promise<ArrayBuffer> {
+  // If Blob (browser/edge)
+  if (data.arrayBuffer) {
+    return await data.arrayBuffer();
+  }
+
+  // If web ReadableStream
+  if (data instanceof ReadableStream) {
+    const reader = data.getReader();
+    const chunks: Uint8Array[] = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+
+    let length = chunks.reduce((a, c) => a + c.length, 0);
+    let combined = new Uint8Array(length);
+
+    let pos = 0;
+    for (const chunk of chunks) {
+      combined.set(chunk, pos);
+      pos += chunk.length;
+    }
+
+    return combined.buffer;
+  }
+
+  // If NodeJS Stream
+  const stream = data;
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  return Buffer.concat(chunks).buffer;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { filePath } = await req.json();
@@ -27,24 +64,29 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await supabase.storage
       .from("tech")
-      .download(`${filePath}`);
-    console.log("Trying to download:", `${filePath}`);
+      .download(filePath);
 
-    if (error || !data) {
-      console.error("DOWNLOAD ERROR:", error);
+    if (!data || error) {
       return NextResponse.json(
-        { error: "Could not download file" },
+        { error: "Failed to download file" },
         { status: 500 }
       );
     }
 
-    const buffer = Buffer.from(await data.arrayBuffer());
+    // Convert Supabase result to ArrayBuffer
+    const arrayBuffer = await toArrayBuffer(data);
+    const uint8 = new Uint8Array(arrayBuffer); // For unpdf
+    const buffer = Buffer.from(arrayBuffer); // For pdf-parse & mammoth
+
     let extractedText = "";
 
-    //     PDF Extraction
+    // --------------------------
+    //       PDF Extraction
+    // --------------------------
     if (filePath.endsWith(".pdf")) {
       try {
-        let result = await extractText(buffer);
+        // Primary extraction using unpdf
+        const result = await extractText(uint8);
 
         let rawText = Array.isArray(result?.text)
           ? result.text.join(" ")
@@ -52,8 +94,8 @@ export async function POST(req: NextRequest) {
 
         rawText = rawText.trim();
 
+        // Fallback to pdf-parse when unpdf extracts empty text
         if (!rawText || rawText.length < 5) {
-          // FALLBACK: use pdf-parse
           const pdf = require("pdf-parse");
           const pdfResult = await pdf(buffer);
           rawText = pdfResult.text?.trim() || "";
@@ -62,12 +104,13 @@ export async function POST(req: NextRequest) {
         extractedText = rawText || "⚠ No readable text found.";
       } catch (err) {
         console.error("UNPDF ERROR:", err);
-
         extractedText = "⚠ PDF extraction failed.";
       }
     }
 
+    // --------------------------
     //       DOCX Extraction
+    // --------------------------
     else if (filePath.endsWith(".docx")) {
       const result = await mammoth.extractRawText({ buffer });
       extractedText =

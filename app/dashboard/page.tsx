@@ -134,7 +134,7 @@ export default function DashboardPage() {
 
   // EXTRACT TEXT API CALL
   const extractText = async (filePath: string) => {
-    setExtractingId(filePath); // start extraction for THIS file
+    setExtractingId(filePath); 
 
     const res = await fetch("/api/extract", {
       method: "POST",
@@ -143,7 +143,7 @@ export default function DashboardPage() {
     });
 
     const data = await res.json();
-    setExtractingId(null); // stop only this file
+    setExtractingId(null); 
 
     if (data.error) {
       setExtractedText("Failed to extract text.");

@@ -37,9 +37,7 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await data.arrayBuffer());
     let extractedText = "";
 
-    // ------------------------
     //     PDF Extraction
-    // ------------------------
    if (filePath.endsWith(".pdf")) {
   try {
     const result = await extractText(buffer);
@@ -68,10 +66,8 @@ export async function POST(req: NextRequest) {
   }
 }
 
-
-    // ------------------------
     //       DOCX Extraction
-    // ------------------------
+
     else if (filePath.endsWith(".docx")) {
       const result = await mammoth.extractRawText({ buffer });
       extractedText = result.value?.trim() || "⚠ DOCX contains no readable text.";

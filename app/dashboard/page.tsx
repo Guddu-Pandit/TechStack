@@ -24,8 +24,6 @@ export default function DashboardPage() {
     if (user) setUserInfo(user);
   };
 
-
-
   // FETCH FILES FROM DATABASE
   const fetchFiles = async () => {
     const {
@@ -41,11 +39,10 @@ export default function DashboardPage() {
     if (!error) setFiles(data || []);
   };
 
-useEffect(() => {
-  fetchUser();
-  fetchFiles();
-}, []);
-
+  useEffect(() => {
+    fetchUser();
+    fetchFiles();
+  }, []);
 
   // FILE VALIDATION
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,16 +101,15 @@ useEffect(() => {
     const filePath = `${user.id}/${Date.now()}.${fileExt}`;
 
     const { data: uploaded, error: uploadError } = await supabase.storage
-  .from("tech")
-  .upload(filePath, file);
+      .from("tech")
+      .upload(filePath, file);
 
-if (uploadError) {
-  console.log("UPLOAD ERROR:", uploadError);
-  setError(uploadError.message);
-  setLoading(false);
-  return;
-}
-
+    if (uploadError) {
+      console.log("UPLOAD ERROR:", uploadError);
+      setError(uploadError.message);
+      setLoading(false);
+      return;
+    }
 
     const { error: dbError } = await supabase.from("files").insert({
       user_id: user.id,
@@ -131,14 +127,14 @@ if (uploadError) {
     setError("");
     setLoading(false);
 
-    fetchFiles(); 
+    fetchFiles();
 
     alert("File uploaded successfully!");
   };
 
   // EXTRACT TEXT API CALL
   const extractText = async (filePath: string) => {
-    setExtractingId(filePath); 
+    setExtractingId(filePath);
 
     const res = await fetch("/api/extract", {
       method: "POST",
@@ -147,7 +143,7 @@ if (uploadError) {
     });
 
     const data = await res.json();
-    setExtractingId(null); 
+    setExtractingId(null);
 
     if (data.error) {
       setExtractedText("Failed to extract text.");
@@ -157,36 +153,34 @@ if (uploadError) {
     setExtractedText(data.text);
   };
 
+  // download file
 
-// download file
+  const downloadFile = async (path: string, fileName: string) => {
+    const { data, error } = await supabase.storage
+      .from("tech")
+      .createSignedUrl(path, 60);
 
-const downloadFile = async (path: string, fileName: string) => {
-  const { data, error } = await supabase.storage
-    .from("tech")
-    .createSignedUrl(path, 60);
+    if (error || !data?.signedUrl) {
+      alert("Failed to create download link");
+      return;
+    }
 
-  if (error || !data?.signedUrl) {
-    alert("Failed to create download link");
-    return;
-  }
+    // Fetch the file as a blob (forces download)
+    const response = await fetch(data.signedUrl);
+    const blob = await response.blob();
 
-  // Fetch the file as a blob (forces download)
-  const response = await fetch(data.signedUrl);
-  const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
 
-  const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName; // forces browser to download instead of open
+    document.body.appendChild(link);
 
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName; // forces browser to download instead of open
-  document.body.appendChild(link);
+    link.click();
 
-  link.click();
-
-  link.remove();
-  window.URL.revokeObjectURL(url);
-};
-
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="min-h-svh w-full bg-[#F5F7FA] flex flex-col">
@@ -274,14 +268,13 @@ const downloadFile = async (path: string, fileName: string) => {
               </div>
 
               <div className="flex gap-3">
-               <Button
-  variant="outline"
-  className="rounded-lg cursor-pointer"
-  onClick={() => downloadFile(f.file_path, f.original_filename)}
->
-  ⬇ Download
-</Button>
-
+                <Button
+                  variant="outline"
+                  className="rounded-lg cursor-pointer"
+                  onClick={() => downloadFile(f.file_path, f.original_filename)}
+                >
+                  ⬇ Download
+                </Button>
 
                 <Button
                   onClick={() => extractText(f.file_path)}
